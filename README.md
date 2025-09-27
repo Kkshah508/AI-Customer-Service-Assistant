@@ -1,4 +1,4 @@
-# 🤖 AI Customer Service Assistant - Student Project
+# 🤖 AI Customer Service Assistant
 
 A basic AI-powered customer service chatbot built as a learning project. This simple assistant can have conversations and help with basic customer support questions.
 
