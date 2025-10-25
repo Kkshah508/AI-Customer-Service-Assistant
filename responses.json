@@ -1,41 +1,61 @@
 {
-    "symptom_triage": {
-        "critical": "⚠️ **EMERGENCY**: Based on your symptoms, this sounds like a medical emergency. Please call 911 immediately or go to the nearest emergency room. Do not delay seeking care.",
-        "urgent": "🏥 **URGENT**: These symptoms require prompt medical attention. I recommend seeking care within the next 2-4 hours. Would you like me to help you find urgent care facilities nearby?",
-        "moderate": "🩺 **MODERATE**: These symptoms warrant medical evaluation. I suggest scheduling an appointment with your healthcare provider within 24-48 hours.",
-        "mild": "💡 **MILD**: These symptoms can often be managed with self-care. Here are some recommendations, but please consult a healthcare provider if symptoms worsen or persist.",
-        "followup_needed": "I need to ask you a few more questions to better assess your situation. This helps ensure you get the right level of care."
+    "account_support": {
+        "password_reset": "I can help you reset your password. Please check your email for a password reset link, or click 'Forgot Password' on the login page.",
+        "account_locked": "Your account appears to be locked for security reasons. I'll send you a verification link to unlock it, or you can contact our support team for immediate assistance.",
+        "profile_update": "To update your profile information, go to Account Settings in your dashboard. If you need help with specific changes, let me know!",
+        "general": "I'm here to help with your account. What specific issue are you experiencing?"
     },
-    "emergency": {
-        "immediate": "🚨 **CALL 911 NOW** - This sounds like a medical emergency. Please call emergency services immediately or have someone drive you to the nearest emergency room. Time is critical.",
-        "redirect": "For immediate emergency assistance, please call 911 or go to your nearest emergency room. I cannot provide emergency medical care through this system."
+    "order_status": {
+        "tracking": "I can help you track your order. Please provide your order number, and I'll get you the latest shipping information.",
+        "delayed": "I understand delays can be frustrating. Let me check the status of your order and provide you with an updated delivery estimate.",
+        "not_arrived": "If your order hasn't arrived within the expected delivery window, I can help you investigate. Please provide your order number.",
+        "general": "I'll be happy to help you check on your order. Do you have your order number handy?"
     },
-    "appointment_booking": {
-        "general": "I'd be happy to help you with appointment scheduling. Let me connect you with our booking system or provide you with the direct number to call.",
-        "specialist": "For specialist appointments, I'll need to know what type of specialist you need and your preferred timeframe.",
-        "reschedule": "I can help you reschedule your appointment. Please provide your current appointment details."
+    "billing_payment": {
+        "refund": "I can assist with refund requests. Typically refunds are processed within 5-7 business days. Let me check your specific situation.",
+        "double_charge": "I apologize for any billing errors. Let me look into this double charge issue for you. Please provide the transaction details.",
+        "payment_method": "You can update your payment method in your account settings, or I can guide you through the process.",
+        "general": "I'm here to help with billing questions. What specific issue can I assist you with?"
     },
-    "medication_info": {
-        "general": "For medication questions, I can provide general information, but please always consult with your pharmacist or healthcare provider for personalized advice.",
-        "side_effects": "If you're experiencing concerning side effects, please contact your healthcare provider. Never stop taking prescribed medications without medical guidance.",
-        "interactions": "Drug interactions can be serious. Please consult with your pharmacist or doctor before combining medications."
+    "product_inquiry": {
+        "availability": "Let me check the availability of that product for you. What specific item are you interested in?",
+        "features": "I'd be happy to explain the features of our products. Which product would you like to know more about?",
+        "specifications": "I can provide detailed specifications for any of our products. Which one are you interested in?",
+        "general": "I can help you learn more about our products. What would you like to know?"
+    },
+    "returns_exchanges": {
+        "return_policy": "Our return policy allows returns within 30 days of purchase with proof of receipt. Items must be in original condition.",
+        "defective": "I'm sorry you received a defective item. We'll process a replacement or refund right away. Please provide your order details.",
+        "wrong_item": "I apologize for sending the wrong item. We'll arrange for the correct product to be sent and a return label for the incorrect one.",
+        "general": "I can help you with returns and exchanges. What would you like to do?"
+    },
+    "technical_support": {
+        "login_issue": "Let's troubleshoot your login problem. Have you tried resetting your password or clearing your browser cache?",
+        "error_message": "I can help diagnose error messages. Please describe the error you're seeing and when it occurs.",
+        "slow_performance": "Slow performance can have several causes. Let's try some troubleshooting steps to improve your experience.",
+        "general": "I'm here to help with technical issues. Can you describe the problem you're experiencing?"
+    },
+    "complaint": {
+        "acknowledged": "I sincerely apologize for your experience. Your feedback is important to us. Let me see how I can make this right.",
+        "escalation": "I understand your frustration. I'd like to escalate this to a supervisor who can provide additional assistance.",
+        "quality_issue": "I'm sorry the quality didn't meet your expectations. We take these concerns seriously and will work to resolve this.",
+        "general": "I apologize that we didn't meet your expectations. Please tell me more so I can help resolve this."
     },
     "general_inquiry": {
-        "hours": "Our clinic hours are Monday-Friday 8:00 AM - 6:00 PM, Saturday 9:00 AM - 3:00 PM. Emergency services are available 24/7.",
-        "insurance": "We accept most major insurance plans. Please call our billing department at [phone] with your specific insurance information.",
-        "parking": "Free parking is available in our main lot. Handicap accessible spaces are located near the main entrance."
+        "hours": "Our customer service is available Monday-Friday 9:00 AM - 8:00 PM, Saturday 10:00 AM - 6:00 PM. You can reach us 24/7 through this chat.",
+        "contact": "You can reach us by phone at 1-800-SUPPORT, email at support@company.com, or through this live chat system.",
+        "shipping": "We offer standard shipping (5-7 business days) and expedited shipping (2-3 business days). International shipping is also available."
     },
     "greeting": {
-        "initial": "Hello! I'm your AI healthcare assistant. I can help with symptom assessment, appointment scheduling, and general health questions. How can I assist you today?",
+        "initial": "Hello! I'm your AI customer service assistant. I can help with orders, account issues, billing questions, and more. How can I assist you today?",
         "returning": "Welcome back! How can I help you today?"
     },
     "clarification": {
-        "unclear": "I want to make sure I understand your concern correctly. Could you please provide more details about your symptoms or question?",
-        "multiple_intents": "I notice you have several concerns. Let's address them one by one to ensure you get the best care."
+        "unclear": "I want to make sure I understand your request correctly. Could you please provide more details?",
+        "multiple_intents": "I notice you have several questions. Let's address them one by one to ensure I help you properly."
     },
     "escalation": {
-        "human_needed": "Based on the complexity of your situation, I'd like to connect you with one of our healthcare professionals who can provide more specialized assistance.",
-        "frustrated_user": "I understand this can be frustrating. Let me connect you with a human representative who can better assist you."
-    },
-    "disclaimer": "⚠️ **Medical Disclaimer**: This AI assistant provides general health information only and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult qualified healthcare professionals for medical concerns."
+        "human_needed": "Based on your request, I'd like to connect you with a human agent who can provide more personalized assistance.",
+        "frustrated_user": "I understand this is frustrating. Let me connect you with a senior support representative who can better assist you."
+    }
 }

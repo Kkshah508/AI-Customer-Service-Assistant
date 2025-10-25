@@ -1,62 +1,98 @@
 {
-    "symptom_triage": [
-        "My child has a fever of 102°F and a rash",
-        "I have chest pain and shortness of breath",
-        "Severe headache with vision problems",
-        "Persistent cough for 2 weeks",
-        "My baby won't stop crying and feels hot",
-        "I'm experiencing dizziness and nausea",
-        "Sharp abdominal pain that won't go away",
-        "Difficulty swallowing and throat pain",
-        "My child is vomiting and has diarrhea",
-        "Sudden onset of severe back pain"
+    "account_support": [
+        "I need help with my account",
+        "I forgot my password",
+        "How do I update my profile?",
+        "I can't log into my account",
+        "I need to change my email address",
+        "How do I delete my account?",
+        "I want to update my payment information",
+        "My account has been locked",
+        "I need to verify my identity",
+        "How do I change my account settings?"
     ],
-    "appointment_booking": [
-        "I need to schedule an appointment",
-        "Can I book a visit with Dr. Smith?",
-        "What's the earliest available slot?",
-        "I'd like to see a cardiologist",
-        "Can I reschedule my appointment?",
-        "I need a follow-up appointment",
-        "What specialists do you have available?",
-        "I want to cancel my upcoming appointment"
+    "order_status": [
+        "Where is my order?",
+        "When will my order arrive?",
+        "I want to track my package",
+        "My order hasn't arrived yet",
+        "Can I change my delivery address?",
+        "I need to cancel my order",
+        "Is my order still being processed?",
+        "How do I check my order status?",
+        "When will my order ship?",
+        "My tracking number isn't working"
     ],
-    "emergency": [
-        "I think I'm having a heart attack",
-        "My baby won't stop crying and has a high fever",
-        "Severe allergic reaction, trouble breathing",
-        "I can't feel my arm and face is drooping",
-        "Severe bleeding that won't stop",
-        "Loss of consciousness",
-        "Choking and can't breathe properly",
-        "Severe burns on my hands"
+    "billing_payment": [
+        "I was charged twice",
+        "I need a refund",
+        "I don't recognize this charge",
+        "How do I update my payment method?",
+        "My payment didn't go through",
+        "Can I get an invoice?",
+        "I need help with my bill",
+        "What payment methods do you accept?",
+        "Can I set up a payment plan?",
+        "I was overcharged"
+    ],
+    "product_inquiry": [
+        "Tell me about this product",
+        "What are the features?",
+        "Is this product in stock?",
+        "Do you have this in a different size?",
+        "What's the warranty policy?",
+        "Can I see product specifications?",
+        "Are there any discounts available?",
+        "What's the return policy?",
+        "Do you have similar products?",
+        "Is this compatible with my device?"
+    ],
+    "returns_exchanges": [
+        "I want to return an item",
+        "How do I exchange this product?",
+        "What's your return policy?",
+        "Can I get a refund?",
+        "This item is defective",
+        "I received the wrong item",
+        "How long do I have to return this?",
+        "Do I need a receipt to return?",
+        "Where do I send my return?",
+        "How much will shipping cost for a return?"
     ],
     "general_inquiry": [
-        "What are your visiting hours?",
-        "Do you accept my insurance?",
-        "Where is the parking?",
-        "What documents do I need to bring?",
-        "How do I get my test results?",
-        "What's the cost of an X-ray?",
-        "Can I get a referral?",
-        "Do you have wheelchair access?"
+        "What are your business hours?",
+        "How do I contact support?",
+        "Do you ship internationally?",
+        "What's your phone number?",
+        "Where are you located?",
+        "Do you have a mobile app?",
+        "How do I subscribe to your newsletter?",
+        "What are your shipping options?",
+        "Do you offer gift cards?",
+        "How do I create an account?"
     ],
-    "medication_info": [
-        "What are the side effects of this medication?",
-        "Can I take this with my other medicines?",
-        "How should I store this prescription?",
-        "What if I miss a dose?",
-        "Can I take this while pregnant?",
-        "This medication isn't working, what should I do?",
-        "I'm having side effects from my medication",
-        "How long should I take this prescription?"
+    "technical_support": [
+        "The app is not working",
+        "I'm having trouble logging in",
+        "The website is showing an error",
+        "My download failed",
+        "The page won't load",
+        "I can't upload my files",
+        "The system is running slow",
+        "I need help setting up my device",
+        "Something isn't working properly",
+        "How do I troubleshoot this issue?"
     ],
-    "insurance_question": [
-        "Does my insurance cover this procedure?",
-        "What's my copay for this visit?",
-        "I need prior authorization for treatment",
-        "How do I submit insurance claims?",
-        "My insurance was denied, what now?",
-        "What insurance plans do you accept?"
+    "complaint": [
+        "I'm not satisfied with the service",
+        "This product is terrible",
+        "I want to speak to a manager",
+        "This is unacceptable",
+        "I'm very disappointed",
+        "This isn't what I ordered",
+        "The quality is poor",
+        "I received damaged goods",
+        "Your customer service is awful",
+        "I want to file a complaint?"
     ]
 }

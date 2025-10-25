@@ -1,120 +1,159 @@
-# 🤖 AI Customer Service Assistant
+# AI Customer Service Assistant - React Frontend
 
-A basic AI-powered customer service chatbot built as a learning project. This simple assistant can have conversations and help with basic customer support questions.
+A professional, modern React frontend for the AI-powered customer service assistant with voice and text support.
 
-![Python](https://img.shields.io/badge/Python-3.9%2B-brightgreen.svg)
-![Streamlit](https://img.shields.io/badge/Built%20with-Streamlit-red.svg)
-![Student Project](https://img.shields.io/badge/Level-Student%20Project-yellow.svg)
-## 🎯 What This Project Does
+## Features
 
-This is a simple AI chatbot that can:
-- 💬 Have basic conversations with users
-- 🤖 Understand simple questions and provide helpful responses
-- 📞 Help with basic customer service inquiries
-- 🔊 Support voice input (when audio libraries are installed)
+- **Modern UI/UX**: Built with React, TailwindCSS, and Framer Motion
+- **Real-time Chat**: Instant messaging with the AI assistant
+- **Voice Support**: Voice recording and text-to-speech capabilities
+- **Quick Actions**: Pre-defined message templates for common queries
+- **System Monitoring**: Real-time system stats and status
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Smooth Animations**: Engaging user experience with motion effects
 
-## ✨ Features
+## Tech Stack
 
-### Basic Capabilities
-- **Simple Chat Interface**: Clean and easy-to-use chat interface built with Streamlit
-- **Intent Understanding**: Can understand what users are asking for
-- **Conversation Memory**: Remembers what you talked about during the chat session
-- **Voice Support**: Optional voice input feature
-- **User-Friendly**: Simple design perfect for learning and demonstrations
+- **React 18**: Latest React features and hooks
+- **TailwindCSS**: Utility-first CSS framework
+- **Framer Motion**: Animation library
+- **Zustand**: Lightweight state management
+- **Axios**: HTTP client for API requests
+- **Lucide React**: Beautiful icon library
+- **React Hot Toast**: Elegant notifications
 
-### What You Can Ask About
-- General questions and conversation
-- Basic customer support topics
-- Simple information requests
-- Help with common issues
-- Account-related questions
+## Installation
 
-
-## 🚀 How to Run This Project
-
-### What You Need
-- Python 3.9 or higher
-- Basic understanding of Python
-- Internet connection
-
-### Easy Setup
-
-1. **Download the project files**
-   - Download or clone this repository to your computer
-
-2. **Install Python libraries**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Run the chatbot**
-   ```bash
-   streamlit run frontend/streamlit_app.py
-   ```
-
-4. **Open in browser**
-   - Your web browser will open automatically
-   - If not, go to `http://localhost:8501`
-
-## 📁 Project Files
-
-```
-ai-customer-service/
-├── 📊 data/                    # Bot training data
-│   ├── intents.json            # What the bot can understand
-│   └── responses.json          # How the bot responds
-├── 🧠 src/                    # Main bot code
-│   ├── main_assistant.py       # Main bot logic
-│   └── (other Python files)    # Supporting functions
-├── 🖥️ frontend/               # Web interface
-│   └── streamlit_app.py        # The web app you see
-├── 📋 requirements.txt         # List of needed Python libraries
-└── 📆 README.md               # This file
+1. Install dependencies:
+```bash
+cd frontend/react-app
+npm install
 ```
 
-## 💬 How to Use
+2. Create environment file (optional):
+```bash
+cp .env.example .env
+```
 
-1. **Start the app** - Run the command above
-2. **Open your browser** - Go to the web address shown
-3. **Type a message** - Ask the bot anything!
-4. **Try the quick buttons** - Click "Say Hello" or "Ask Question"
-5. **Have a conversation** - The bot remembers what you talked about
+Edit `.env` to set your API URL:
+```
+REACT_APP_API_URL=http://localhost:5000
+```
 
-### Example Conversations
-- "Hello, how are you?"
-- "I need help with my account"
-- "What can you do?"
-- "Tell me a joke"
+## Running the Application
 
+### Development Mode
 
-## 🎓 What I Learned Building This
+```bash
+npm start
+```
 
-This project helped me learn about:
-- **Python Programming**: Using different libraries and modules
-- **AI and Machine Learning**: How chatbots understand and respond to text
-- **Web Development**: Building user interfaces with Streamlit
-- **Software Structure**: Organizing code into different files and folders
+The app will open at [http://localhost:3000](http://localhost:3000)
 
-## 🛠️ Technologies Used
+### Production Build
 
-- **Python** - Main programming language
-- **Streamlit** - For creating the web interface
-- **HuggingFace Transformers** - For AI language processing
-- **JSON** - For storing conversation data
+```bash
+npm run build
+```
 
-## 📚 Next Steps
+The optimized build will be in the `build/` directory.
 
-Ideas to make this project even better:
-- Add more conversation topics
-- Improve the bot's responses
-- Add user authentication
-- Create a mobile app version
-- Connect to a real customer database
+## Backend API
 
-## 🎯 About This Project
+The React frontend requires the Flask API backend to be running. Start the backend:
 
-This is a student learning project that demonstrates basic AI chatbot concepts. It's designed to be simple to understand and easy to modify for learning purposes.
+```bash
+cd ../..
+python src/flask_api.py
+```
 
----
+The API will run at [http://localhost:5000](http://localhost:5000)
 
-*Built by a student learning AI and Python! 🎓*
+## Project Structure
+
+```
+src/
+├── components/          # React components
+│   ├── Header.jsx      # App header with branding
+│   ├── Sidebar.jsx     # Settings and system stats
+│   ├── ChatInterface.jsx   # Main chat interface
+│   ├── ChatMessage.jsx     # Message display component
+│   ├── VoiceRecorder.jsx   # Voice recording component
+│   └── QuickActions.jsx    # Quick action buttons
+├── services/           # API services
+│   └── api.js         # API integration
+├── store/             # State management
+│   └── useStore.js    # Zustand store
+├── App.js             # Main app component
+├── index.js           # Entry point
+└── index.css          # Global styles
+```
+
+## Available Scripts
+
+- `npm start` - Start development server
+- `npm build` - Create production build
+- `npm test` - Run tests
+- `npm eject` - Eject from Create React App (irreversible)
+
+## Configuration
+
+### API Integration
+
+The app connects to the Flask backend API. Configure the API URL in:
+- Development: `.env.local` or proxy in `package.json`
+- Production: Environment variables
+
+### Voice Features
+
+Voice recording requires:
+- Microphone permissions
+- HTTPS in production (or localhost)
+- Backend voice processing support
+
+## Deployment
+
+### Deploy to Vercel/Netlify
+
+1. Build the app: `npm run build`
+2. Deploy the `build` folder
+3. Set environment variable: `REACT_APP_API_URL=<your-api-url>`
+
+### Docker Deployment
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+RUN npm install -g serve
+CMD ["serve", "-s", "build", "-l", "3000"]
+```
+
+## Browser Support
+
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+
+## Troubleshooting
+
+### API Connection Issues
+
+1. Ensure backend is running: `python src/flask_api.py`
+2. Check CORS settings in Flask backend
+3. Verify API URL in environment variables
+
+### Voice Not Working
+
+1. Grant microphone permissions
+2. Use HTTPS or localhost
+3. Check browser compatibility
+4. Verify backend voice handler is initialized
+
+## License
+
+Part of the AI Customer Service Assistant project.
