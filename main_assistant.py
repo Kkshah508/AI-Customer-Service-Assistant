@@ -15,6 +15,7 @@ from .sentiment_analyzer import SentimentAnalyzer
 from .healthcare_logic import HealthcareTriageSystem
 from .dialogue_manager import DialogueManager
 from .response_generator import ResponseGenerator
+from .knowledge_base import KnowledgeBase
 try:
     from .voice_handler import VoiceHandler
     VOICE_AVAILABLE = True
@@ -51,7 +52,10 @@ class HealthcareAssistant:
             self.dialogue_manager = DialogueManager()
             logger.info("✓ Dialogue Manager initialized")
             
-            self.response_generator = ResponseGenerator()
+            self.knowledge_base = KnowledgeBase()
+            logger.info("✓ Knowledge Base initialized")
+            
+            self.response_generator = ResponseGenerator(knowledge_base=self.knowledge_base)
             logger.info("✓ Response Generator initialized")
             
             if VOICE_AVAILABLE:
@@ -107,6 +111,7 @@ class HealthcareAssistant:
             dialogue_result = self.dialogue_manager.process_user_input(
                 user_id, message, intent_result, sentiment_result
             )
+            dialogue_result["user_message"] = message
             
             # Step 4: Healthcare-specific processing
             healthcare_assessment = None

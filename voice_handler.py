@@ -29,11 +29,11 @@ class VoiceHandler:
     def __init__(self):
         logger.info("Initializing Voice Handler...")
         
-        if not SPEECH_RECOGNITION_AVAILABLE:
-            raise ImportError("speech_recognition module is not available")
-            
-        self.recognizer = sr.Recognizer()
-        self.microphone = sr.Microphone()
+        self.recognizer = sr.Recognizer() if SPEECH_RECOGNITION_AVAILABLE else None
+        try:
+            self.microphone = sr.Microphone() if SPEECH_RECOGNITION_AVAILABLE else None
+        except Exception:
+            self.microphone = None
         
         try:
             self.tts_pipeline = pipeline(
@@ -46,8 +46,12 @@ class VoiceHandler:
             logger.warning(f"TTS model failed to load: {e}")
             self.tts_pipeline = None
         
-        with self.microphone as source:
-            self.recognizer.adjust_for_ambient_noise(source)
+        if self.microphone and self.recognizer:
+            try:
+                with self.microphone as source:
+                    self.recognizer.adjust_for_ambient_noise(source)
+            except Exception:
+                self.microphone = None
     
     def speech_to_text(self, audio_data: AudioDataType) -> Optional[str]:
         if not SPEECH_RECOGNITION_AVAILABLE:
@@ -65,33 +69,39 @@ class VoiceHandler:
             return None
     
     def text_to_speech(self, text: str) -> Optional[bytes]:
-        if not self.tts_pipeline:
-            return None
+        if self.tts_pipeline:
+            try:
+                result = self.tts_pipeline(text)
+                if isinstance(result, dict) and "audio" in result:
+                    audio = result["audio"]
+                    sample_rate = result.get("sampling_rate", 22050)
+                    audio_np = np.array(audio)
+                    if audio_np.dtype != np.int16:
+                        audio_np = (audio_np * 32767).astype(np.int16)
+                    buffer = io.BytesIO()
+                    with wave.open(buffer, 'wb') as wav_file:
+                        wav_file.setnchannels(1)
+                        wav_file.setsampwidth(2)
+                        wav_file.setframerate(sample_rate)
+                        wav_file.writeframes(audio_np.tobytes())
+                    return buffer.getvalue()
+            except Exception as e:
+                logger.error(f"TTS error: {e}")
         
         try:
-            result = self.tts_pipeline(text)
-            
-            if isinstance(result, dict) and "audio" in result:
-                audio = result["audio"]
-                sample_rate = result.get("sampling_rate", 22050)
-                
-                audio_np = np.array(audio)
-                if audio_np.dtype != np.int16:
-                    audio_np = (audio_np * 32767).astype(np.int16)
-                
-                buffer = io.BytesIO()
-                with wave.open(buffer, 'wb') as wav_file:
-                    wav_file.setnchannels(1)
-                    wav_file.setsampwidth(2)
-                    wav_file.setframerate(sample_rate)
-                    wav_file.writeframes(audio_np.tobytes())
-                
-                return buffer.getvalue()
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"TTS error: {e}")
+            duration = 1.0
+            sample_rate = 22050
+            t = np.linspace(0, duration, int(sample_rate * duration), False)
+            tone = 0.2 * np.sin(2 * np.pi * 440 * t)
+            audio_np = (tone * 32767).astype(np.int16)
+            buffer = io.BytesIO()
+            with wave.open(buffer, 'wb') as wav_file:
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)
+                wav_file.setframerate(sample_rate)
+                wav_file.writeframes(audio_np.tobytes())
+            return buffer.getvalue()
+        except Exception:
             return None
     
     def listen_for_speech(self, timeout: int = 5) -> Optional[str]:

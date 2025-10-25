@@ -10,19 +10,19 @@ import os
 import random
 from typing import Dict, List, Optional, Any
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
 
 class ResponseGenerator:
-    """
-    Generates contextually appropriate responses for the healthcare assistant.
-    """
-    
-    def __init__(self):
-        """Initialize the response generator."""
+    def __init__(self, knowledge_base=None):
         self.responses = {}
         self.load_response_templates()
+        self.use_llm = bool(os.getenv("OPENAI_API_KEY"))
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        self.knowledge_base = knowledge_base
         
         # Response tone modifiers
         self.tone_modifiers = {
@@ -45,8 +45,8 @@ class ResponseGenerator:
                 "tone": "professional and informative"
             },
             "urgent": {
-                "prefixes": ["⚠️ This is important:", "🚨 Immediate attention needed:",
-                           "⚠️ Based on your symptoms:"],
+                "prefixes": ["Important:", "Immediate attention may be required:",
+                           "Please review this:"],
                 "connectors": ["You need to:", "Please take the following action immediately:"],
                 "tone": "clear and direct"
             }
@@ -96,14 +96,15 @@ class ResponseGenerator:
         if entities is None:
             entities = {}
         
-        # Determine response tone based on sentiment
         tone = self._determine_tone(sentiment, context)
-        
-        # Generate base response based on intent
-        base_response = self._generate_base_response(intent, context, entities)
-        
-        # Adjust tone and add empathy
-        final_response = self.adjust_tone_for_sentiment(base_response, sentiment, tone)
+        final_response = None
+        if self.use_llm and intent in ["general_inquiry", "appointment_booking", "insurance_question", "medication_info"]:
+            llm_text = self._generate_llm_response(intent, sentiment, context, entities)
+            if llm_text:
+                final_response = llm_text
+        if not final_response:
+            base_response = self._generate_base_response(intent, context, entities)
+            final_response = self.adjust_tone_for_sentiment(base_response, sentiment, tone)
         
         # Add follow-up if needed
         if context.get("need_follow_up"):
@@ -130,6 +131,49 @@ class ResponseGenerator:
                    f"urgency={sentiment.get('urgency_level', 'low')}")
         
         return response_data
+
+    def _generate_llm_response(self, intent: str, sentiment: Dict[str, Any], context: Dict[str, Any], entities: Dict[str, Any]) -> Optional[str]:
+        try:
+            if not self.openai_api_key:
+                return None
+            user_text = context.get("user_message") or ""
+            if not user_text:
+                return None
+            
+            kb_context = ""
+            if self.knowledge_base:
+                try:
+                    retrieved_docs = self.knowledge_base.query(user_text, n_results=3)
+                    if retrieved_docs:
+                        kb_context = "\n\nRelevant information from knowledge base:\n"
+                        for i, doc in enumerate(retrieved_docs, 1):
+                            kb_context += f"\n[{i}] {doc['text']}\n"
+                except Exception as e:
+                    logger.warning(f"Knowledge base query failed: {e}")
+            
+            system_prompt = "You are a helpful customer service AI assistant. Provide concise, actionable answers and ask at most one clarifying question if needed."
+            if kb_context:
+                system_prompt += " Use the provided knowledge base information to answer accurately."
+            
+            user_content = user_text
+            if kb_context:
+                user_content = f"{user_text}{kb_context}"
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
+            ]
+            payload = {"model": self.openai_model, "messages": messages, "temperature": 0.5, "max_tokens": 300}
+            headers = {"Authorization": f"Bearer {self.openai_api_key}", "Content-Type": "application/json"}
+            r = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=15)
+            if r.status_code == 200:
+                data = r.json()
+                choice = (data.get("choices") or [{}])[0]
+                content = (choice.get("message") or {}).get("content")
+                return content
+            return None
+        except Exception:
+            return None
     
     def _determine_tone(self, sentiment: Dict[str, Any], context: Dict[str, Any]) -> str:
         """Determine appropriate response tone."""
