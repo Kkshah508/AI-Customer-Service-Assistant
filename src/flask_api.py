@@ -4,26 +4,109 @@ import os
 import sys
 import tempfile
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 import io
 from dotenv import load_dotenv
+from functools import wraps
+import time
+from collections import defaultdict
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.main_assistant import HealthcareAssistant
 from src.utils import validate_user_input
 from src.knowledge_base import KnowledgeBase
+from src.cache_manager import CacheManager
+from src.auth_manager import generate_token, verify_token, optional_token
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-logging.basicConfig(level=logging.INFO)
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
+file_handler = RotatingFileHandler(
+    'logs/app.log',
+    maxBytes=10485760,
+    backupCount=10
+)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.INFO)
+
+error_handler = RotatingFileHandler(
+    'logs/errors.log',
+    maxBytes=10485760,
+    backupCount=10
+)
+error_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+error_handler.setLevel(logging.ERROR)
+
+app.logger.addHandler(file_handler)
+app.logger.addHandler(error_handler)
+app.logger.setLevel(logging.INFO)
+
 logger = logging.getLogger(__name__)
+logger.addHandler(file_handler)
+logger.addHandler(error_handler)
+
+rate_limit_store = defaultdict(list)
+RATE_LIMIT_REQUESTS = 60
+RATE_LIMIT_WINDOW = 60
 
 assistant = None
 knowledge_base = None
+cache_manager = CacheManager(max_size=1000, ttl=300)
+
+def rate_limit(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        client_ip = request.remote_addr
+        now = time.time()
+        
+        rate_limit_store[client_ip] = [
+            req_time for req_time in rate_limit_store[client_ip]
+            if now - req_time < RATE_LIMIT_WINDOW
+        ]
+        
+        if len(rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+            return jsonify({
+                'status': 'error',
+                'message': 'Rate limit exceeded. Please try again later.'
+            }), 429
+        
+        rate_limit_store[client_ip].append(now)
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({
+        'status': 'error',
+        'message': 'Resource not found'
+    }), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f'Internal server error: {error}')
+    return jsonify({
+        'status': 'error',
+        'message': 'Internal server error. Please try again later.'
+    }), 500
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    logger.error(f'Unhandled exception: {error}', exc_info=True)
+    return jsonify({
+        'status': 'error',
+        'message': 'An unexpected error occurred'
+    }), 500
 
 def get_assistant():
     global assistant
@@ -92,7 +175,57 @@ def initialize():
             }
         })
 
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        user_name = data.get('user_name', '')
+        
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'User ID required'}), 400
+        
+        token = generate_token(user_id, {'name': user_name})
+        
+        return jsonify({
+            'status': 'success',
+            'token': token,
+            'user_id': user_id
+        })
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return jsonify({'status': 'error', 'message': 'Login failed'}), 500
+
+@app.route('/api/auth/verify', methods=['POST'])
+def verify():
+    try:
+        data = request.json
+        token = data.get('token')
+        
+        if not token:
+            return jsonify({'status': 'error', 'message': 'Token required'}), 400
+        
+        result = verify_token(token)
+        
+        if result['valid']:
+            return jsonify({
+                'status': 'success',
+                'valid': True,
+                'user_id': result['payload']['user_id']
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'valid': False,
+                'message': result['error']
+            }), 401
+    except Exception as e:
+        logger.error(f"Verify error: {e}")
+        return jsonify({'status': 'error', 'message': 'Verification failed'}), 500
+
 @app.route('/api/process', methods=['POST'])
+@rate_limit
+@optional_token
 def process_message():
     try:
         data = request.json
@@ -139,8 +272,16 @@ def process_message():
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     try:
+        cache_key = 'system_stats'
+        cached_stats = cache_manager.get(cache_key)
+        
+        if cached_stats:
+            return jsonify(cached_stats)
+        
         assistant_instance = get_assistant()
         stats = assistant_instance.get_system_stats()
+        
+        cache_manager.set(cache_key, stats)
         return jsonify(stats)
     except Exception as e:
         logger.error(f"Stats error: {e}")
@@ -191,6 +332,7 @@ def reset_conversation():
         }), 500
 
 @app.route('/api/voice/process', methods=['POST'])
+@rate_limit
 def process_voice():
     try:
         if 'audio' not in request.files:
@@ -237,6 +379,7 @@ def process_voice():
         }), 500
 
 @app.route('/api/voice/tts', methods=['POST'])
+@rate_limit
 def text_to_speech():
     try:
         data = request.json
@@ -463,6 +606,7 @@ def get_knowledge_documents():
         }), 500
 
 @app.route('/api/knowledge/upload', methods=['POST'])
+@rate_limit
 def upload_knowledge_document():
     try:
         if 'file' not in request.files:

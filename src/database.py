@@ -4,25 +4,58 @@ import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import logging
+import threading
+from queue import Queue, Empty
 
 logger = logging.getLogger(__name__)
 
 
 class Database:
     
-    def __init__(self, db_path: str = "customer_service.db"):
+    def __init__(self, db_path: str = "customer_service.db", pool_size: int = 5):
         self.db_path = db_path
-        self.conn = None
+        self.pool_size = pool_size
+        self.pool = Queue(maxsize=pool_size)
+        self.lock = threading.Lock()
         self.initialize_database()
     
     def initialize_database(self):
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
-        self.create_tables()
-        logger.info(f"Database initialized at {self.db_path}")
+        for _ in range(self.pool_size):
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self.pool.put(conn)
+        
+        temp_conn = self.get_connection()
+        try:
+            self.create_tables(temp_conn)
+            logger.info(f"Database initialized at {self.db_path} with pool size {self.pool_size}")
+        finally:
+            self.return_connection(temp_conn)
     
-    def create_tables(self):
-        cursor = self.conn.cursor()
+    def get_connection(self):
+        try:
+            return self.pool.get(timeout=5)
+        except Empty:
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            return conn
+    
+    def return_connection(self, conn):
+        try:
+            self.pool.put_nowait(conn)
+        except:
+            conn.close()
+    
+    def close(self):
+        while not self.pool.empty():
+            try:
+                conn = self.pool.get_nowait()
+                conn.close()
+            except Empty:
+                break
+    
+    def create_tables(self, conn):
+        cursor = conn.cursor()
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -81,33 +114,40 @@ class Database:
             ON conversations(user_id)
         """)
         
-        self.conn.commit()
+        conn.commit()
     
     def create_user(self, user_id: str, profile_data: Dict = None):
-        cursor = self.conn.cursor()
+        conn = self.get_connection()
         try:
+            cursor = conn.cursor()
             cursor.execute("""
                 INSERT OR IGNORE INTO users (user_id, profile_data)
                 VALUES (?, ?)
             """, (user_id, json.dumps(profile_data or {})))
-            self.conn.commit()
+            conn.commit()
         except Exception as e:
             logger.error(f"Error creating user: {e}")
+        finally:
+            self.return_connection(conn)
     
     def update_user_activity(self, user_id: str):
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            UPDATE users 
-            SET last_active = CURRENT_TIMESTAMP 
-            WHERE user_id = ?
-        """, (user_id,))
-        self.conn.commit()
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE users 
+                SET last_active = CURRENT_TIMESTAMP 
+                WHERE user_id = ?
+            """, (user_id,))
+            conn.commit()
+        finally:
+            self.return_connection(conn)
     
     def create_conversation(self, session_id: str, user_id: str, metadata: Dict = None):
-        cursor = self.conn.cursor()
         self.create_user(user_id)
-        
+        conn = self.get_connection()
         try:
+            cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO conversations 
                 (session_id, user_id, metadata)
@@ -120,13 +160,13 @@ class Database:
                 VALUES (?, ?, ?, ?)
             """, (session_id, json.dumps([]), json.dumps([]), json.dumps({})))
             
-            self.conn.commit()
+            conn.commit()
         except Exception as e:
             logger.error(f"Error creating conversation: {e}")
+        finally:
+            self.return_connection(conn)
     
     def update_conversation(self, session_id: str, **kwargs):
-        cursor = self.conn.cursor()
-        
         valid_fields = ['current_intent', 'urgency_level', 'escalation_triggered', 
                        'conversation_complete', 'metadata']
         
@@ -141,16 +181,22 @@ class Database:
                 values.append(value)
         
         if updates:
-            updates.append("last_updated = CURRENT_TIMESTAMP")
-            values.append(session_id)
-            
-            query = f"UPDATE conversations SET {', '.join(updates)} WHERE session_id = ?"
-            cursor.execute(query, values)
-            self.conn.commit()
+            conn = self.get_connection()
+            try:
+                cursor = conn.cursor()
+                updates.append("last_updated = CURRENT_TIMESTAMP")
+                values.append(session_id)
+                
+                query = f"UPDATE conversations SET {', '.join(updates)} WHERE session_id = ?"
+                cursor.execute(query, values)
+                conn.commit()
+            finally:
+                self.return_connection(conn)
     
     def add_message(self, session_id: str, sender: str, message: str, metadata: Dict = None):
-        cursor = self.conn.cursor()
+        conn = self.get_connection()
         try:
+            cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO messages (session_id, sender, message, metadata)
                 VALUES (?, ?, ?, ?)
@@ -162,85 +208,97 @@ class Database:
                 WHERE session_id = ?
             """, (session_id,))
             
-            self.conn.commit()
+            conn.commit()
         except Exception as e:
             logger.error(f"Error adding message: {e}")
+        finally:
+            self.return_connection(conn)
     
     def get_messages(self, session_id: str, limit: int = None) -> List[Dict]:
-        cursor = self.conn.cursor()
-        
-        query = """
-            SELECT timestamp, sender, message, metadata 
-            FROM messages 
-            WHERE session_id = ? 
-            ORDER BY timestamp ASC
-        """
-        
-        if limit:
-            query += f" LIMIT {limit}"
-        
-        cursor.execute(query, (session_id,))
-        
-        messages = []
-        for row in cursor.fetchall():
-            messages.append({
-                'timestamp': row['timestamp'],
-                'sender': row['sender'],
-                'message': row['message'],
-                'metadata': json.loads(row['metadata']) if row['metadata'] else {}
-            })
-        
-        return messages
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            query = """
+                SELECT timestamp, sender, message, metadata 
+                FROM messages 
+                WHERE session_id = ? 
+                ORDER BY timestamp ASC
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            cursor.execute(query, (session_id,))
+            
+            messages = []
+            for row in cursor.fetchall():
+                messages.append({
+                    'timestamp': row['timestamp'],
+                    'sender': row['sender'],
+                    'message': row['message'],
+                    'metadata': json.loads(row['metadata']) if row['metadata'] else {}
+                })
+            
+            return messages
+        finally:
+            self.return_connection(conn)
     
     def get_conversation(self, session_id: str) -> Optional[Dict]:
-        cursor = self.conn.cursor()
-        
-        cursor.execute("""
-            SELECT * FROM conversations WHERE session_id = ?
-        """, (session_id,))
-        
-        row = cursor.fetchone()
-        if not row:
-            return None
-        
-        return {
-            'session_id': row['session_id'],
-            'user_id': row['user_id'],
-            'created_at': row['created_at'],
-            'last_updated': row['last_updated'],
-            'current_intent': row['current_intent'],
-            'urgency_level': row['urgency_level'],
-            'escalation_triggered': bool(row['escalation_triggered']),
-            'conversation_complete': bool(row['conversation_complete']),
-            'metadata': json.loads(row['metadata']) if row['metadata'] else {}
-        }
-    
-    def get_user_conversations(self, user_id: str, limit: int = 10) -> List[Dict]:
-        cursor = self.conn.cursor()
-        
-        cursor.execute("""
-            SELECT * FROM conversations 
-            WHERE user_id = ? 
-            ORDER BY last_updated DESC 
-            LIMIT ?
-        """, (user_id, limit))
-        
-        conversations = []
-        for row in cursor.fetchall():
-            conversations.append({
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT * FROM conversations WHERE session_id = ?
+            """, (session_id,))
+            
+            row = cursor.fetchone()
+            if not row:
+                return None
+            
+            return {
                 'session_id': row['session_id'],
+                'user_id': row['user_id'],
                 'created_at': row['created_at'],
                 'last_updated': row['last_updated'],
                 'current_intent': row['current_intent'],
                 'urgency_level': row['urgency_level'],
-                'conversation_complete': bool(row['conversation_complete'])
-            })
-        
-        return conversations
+                'escalation_triggered': bool(row['escalation_triggered']),
+                'conversation_complete': bool(row['conversation_complete']),
+                'metadata': json.loads(row['metadata']) if row['metadata'] else {}
+            }
+        finally:
+            self.return_connection(conn)
+    
+    def get_user_conversations(self, user_id: str, limit: int = 10) -> List[Dict]:
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT * FROM conversations 
+                WHERE user_id = ? 
+                ORDER BY last_updated DESC 
+                LIMIT ?
+            """, (user_id, limit))
+            
+            conversations = []
+            for row in cursor.fetchall():
+                conversations.append({
+                    'session_id': row['session_id'],
+                    'created_at': row['created_at'],
+                    'last_updated': row['last_updated'],
+                    'current_intent': row['current_intent'],
+                    'urgency_level': row['urgency_level'],
+                    'conversation_complete': bool(row['conversation_complete'])
+                })
+            
+            return conversations
+        finally:
+            self.return_connection(conn)
     
     def update_context(self, session_id: str, **kwargs):
-        cursor = self.conn.cursor()
-        
         valid_fields = ['symptoms_mentioned', 'care_level_determined', 
                        'follow_up_questions', 'user_profile']
         
@@ -255,78 +313,92 @@ class Database:
                 values.append(value)
         
         if updates:
-            values.append(session_id)
-            query = f"UPDATE conversation_context SET {', '.join(updates)} WHERE session_id = ?"
-            cursor.execute(query, values)
-            self.conn.commit()
+            conn = self.get_connection()
+            try:
+                cursor = conn.cursor()
+                values.append(session_id)
+                query = f"UPDATE conversation_context SET {', '.join(updates)} WHERE session_id = ?"
+                cursor.execute(query, values)
+                conn.commit()
+            finally:
+                self.return_connection(conn)
     
     def get_context(self, session_id: str) -> Dict:
-        cursor = self.conn.cursor()
-        
-        cursor.execute("""
-            SELECT * FROM conversation_context WHERE session_id = ?
-        """, (session_id,))
-        
-        row = cursor.fetchone()
-        if not row:
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT * FROM conversation_context WHERE session_id = ?
+            """, (session_id,))
+            
+            row = cursor.fetchone()
+            if not row:
+                return {
+                    'symptoms_mentioned': [],
+                    'care_level_determined': None,
+                    'follow_up_questions': [],
+                    'user_profile': {}
+                }
+            
             return {
-                'symptoms_mentioned': [],
-                'care_level_determined': None,
-                'follow_up_questions': [],
-                'user_profile': {}
+                'symptoms_mentioned': json.loads(row['symptoms_mentioned']) if row['symptoms_mentioned'] else [],
+                'care_level_determined': row['care_level_determined'],
+                'follow_up_questions': json.loads(row['follow_up_questions']) if row['follow_up_questions'] else [],
+                'user_profile': json.loads(row['user_profile']) if row['user_profile'] else {}
             }
-        
-        return {
-            'symptoms_mentioned': json.loads(row['symptoms_mentioned']) if row['symptoms_mentioned'] else [],
-            'care_level_determined': row['care_level_determined'],
-            'follow_up_questions': json.loads(row['follow_up_questions']) if row['follow_up_questions'] else [],
-            'user_profile': json.loads(row['user_profile']) if row['user_profile'] else {}
-        }
+        finally:
+            self.return_connection(conn)
     
     def get_active_sessions(self) -> List[str]:
-        cursor = self.conn.cursor()
-        
-        cursor.execute("""
-            SELECT session_id FROM conversations 
-            WHERE conversation_complete = 0 
-            AND datetime(last_updated) > datetime('now', '-2 hours')
-        """)
-        
-        return [row['session_id'] for row in cursor.fetchall()]
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT session_id FROM conversations 
+                WHERE conversation_complete = 0 
+                AND datetime(last_updated) > datetime('now', '-2 hours')
+            """)
+            
+            return [row['session_id'] for row in cursor.fetchall()]
+        finally:
+            self.return_connection(conn)
     
     def get_stats(self) -> Dict[str, Any]:
-        cursor = self.conn.cursor()
-        
-        cursor.execute("SELECT COUNT(*) as count FROM users")
-        total_users = cursor.fetchone()['count']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM conversations")
-        total_conversations = cursor.fetchone()['count']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM messages")
-        total_messages = cursor.fetchone()['count']
-        
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM conversations 
-            WHERE conversation_complete = 0 
-            AND datetime(last_updated) > datetime('now', '-2 hours')
-        """)
-        active_sessions = cursor.fetchone()['count']
-        
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM conversations 
-            WHERE escalation_triggered = 1
-        """)
-        total_escalations = cursor.fetchone()['count']
-        
-        return {
-            'total_users': total_users,
-            'total_conversations': total_conversations,
-            'total_messages': total_messages,
-            'active_sessions': active_sessions,
-            'total_escalations': total_escalations
-        }
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT COUNT(*) as count FROM users")
+            total_users = cursor.fetchone()['count']
+            
+            cursor.execute("SELECT COUNT(*) as count FROM conversations")
+            total_conversations = cursor.fetchone()['count']
+            
+            cursor.execute("SELECT COUNT(*) as count FROM messages")
+            total_messages = cursor.fetchone()['count']
+            
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM conversations 
+                WHERE conversation_complete = 0 
+                AND datetime(last_updated) > datetime('now', '-2 hours')
+            """)
+            active_sessions = cursor.fetchone()['count']
+            
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM conversations 
+                WHERE escalation_triggered = 1
+            """)
+            total_escalations = cursor.fetchone()['count']
+            
+            return {
+                'total_users': total_users,
+                'total_conversations': total_conversations,
+                'total_messages': total_messages,
+                'active_sessions': active_sessions,
+                'total_escalations': total_escalations
+            }
+        finally:
+            self.return_connection(conn)
     
-    def close(self):
-        if self.conn:
-            self.conn.close()

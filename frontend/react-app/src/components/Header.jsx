@@ -1,15 +1,25 @@
 import React from 'react';
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Sparkles, Moon, Sun } from 'lucide-react';
 import { motion } from 'framer-motion';
+import useStore from '../store/useStore';
 
 const Header = () => {
+  const { darkMode, toggleDarkMode } = useStore();
+  
   return (
     <motion.header 
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-xl"
+      className={`${darkMode ? 'bg-gradient-to-r from-gray-800 to-gray-900' : 'bg-gradient-to-r from-primary-500 to-primary-600'} text-white shadow-xl relative`}
     >
       <div className="px-6 py-5">
+        <button
+          onClick={toggleDarkMode}
+          className="absolute right-6 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-white/10 transition-colors"
+        >
+          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+        
         <div className="flex items-center justify-center space-x-3">
           <motion.div
             animate={{ rotate: [0, 360] }}

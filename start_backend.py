@@ -49,6 +49,28 @@ if __name__ == '__main__':
     print("=" * 60)
     print("Starting AI Customer Service Backend API")
     print("=" * 60)
+    
+    if not os.path.exists('.env'):
+        print("\n[WARNING] No .env file found")
+        print("The system will work with basic features only.")
+        print("For enhanced features, copy .env.example to .env and configure:")
+        print("  - OPENAI_API_KEY for LLM responses")
+        print("  - LIVEKIT credentials for voice features")
+        print()
+    else:
+        openai_key = os.getenv('OPENAI_API_KEY')
+        if openai_key and len(openai_key) > 10:
+            print("\n[OK] OpenAI API key detected - LLM responses enabled")
+        else:
+            print("\n[INFO] No OpenAI API key - using template responses")
+        
+        livekit_url = os.getenv('LIVEKIT_URL')
+        if livekit_url:
+            print("[OK] LiveKit configured - voice features available")
+        else:
+            print("[INFO] LiveKit not configured - voice features disabled")
+        print()
+    
     print("\nBackend API will be available at: http://localhost:5000")
     print("Health check endpoint: http://localhost:5000/health")
     
