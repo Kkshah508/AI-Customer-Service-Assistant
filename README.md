@@ -47,78 +47,102 @@ A complete customer service AI platform that:
 ```bash
 START_WITH_LIVEKIT.bat
 ```
-This starts the complete system with real-time voice AI capabilities.
-See `LIVEKIT_SETUP.txt` for LiveKit configuration instructions.
+Starts complete system with real-time voice AI. Requires LiveKit credentials in .env file.
 
 ### Option 2: Standard Mode (Text + Basic Voice)
 ```bash
 START_APP.bat
 ```
-This starts the backend and frontend without LiveKit voice agent.
+Starts backend and React frontend. Works without LiveKit.
 
 ### Option 3: Backend Only
 ```bash
 start_backend.bat
 ```
+Starts Flask API server on port 5000.
 
 ### Option 4: Frontend Only
 ```bash
 start_react.bat
 ```
+Starts React development server on port 3000 (requires backend running).
 
 ## How to Run This Project
-- Basic understanding of Python
+
+### Prerequisites
+- Python 3.9 or newer
+- Node.js 16 or newer
 - Internet connection
-- (Optional) LiveKit Cloud account for voice agent
+- (Optional) OpenAI API key for LLM responses
+- (Optional) LiveKit account for voice agent
 
 ### Easy Setup
 
-1. **Download the project files**
-   - Download or clone this repository to your computer
-
-2. **Install Python libraries**
+1. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the chatbot**
+2. **Install Frontend dependencies**
    ```bash
-   streamlit run frontend/streamlit_app.py
+   cd frontend/react-app
+   npm install
+   cd ../..
    ```
 
-4. **Open in browser**
-   - Your web browser will open automatically
-   - If not, go to `http://localhost:8501`
+3. **Configure environment (Optional)**
+   - Copy `.env.example` to `.env`
+   - Add your OpenAI API key for better responses
+   - Add LiveKit credentials for voice features
 
-## 📁 Project Files
+4. **Run the application**
+   ```bash
+   START_APP.bat
+   ```
+
+5. **Access the application**
+   - Backend API: http://localhost:5000
+   - React Frontend: http://localhost:3000
+
+## 📁 Project Structure
 
 ```
 ai-customer-service/
-├── 📊 data/                    # Bot training data
-│   ├── intents.json            # What the bot can understand
-│   └── responses.json          # How the bot responds
-├── 🧠 src/                    # Main bot code
-│   ├── main_assistant.py       # Main bot logic
-│   └── (other Python files)    # Supporting functions
-├── 🖥️ frontend/               # Web interface
-│   └── streamlit_app.py        # The web app you see
-├── 📋 requirements.txt         # List of needed Python libraries
+├── 📊 data/                    # Training data and configurations
+│   ├── intents.json            # Intent classification patterns
+│   ├── responses.json          # Response templates
+│   └── medical_guidelines.json # Healthcare triage rules
+├── 🧠 src/                    # Backend Python code
+│   ├── main_assistant.py       # Main assistant orchestrator
+│   ├── flask_api.py            # REST API endpoints
+│   ├── database.py             # SQLite database layer
+│   ├── dialogue_manager.py     # Conversation state management
+│   └── ...                     # Other core modules
+├── 🖥️ frontend/               # React web interface
+│   └── react-app/              # React application
+│       ├── src/                # React components
+│       └── public/             # Static assets
+├── 📋 requirements.txt         # Python dependencies
+├── 🗄️ customer_service.db     # SQLite database (created on first run)
 └── 📆 README.md               # This file
 ```
 
 ## 💬 How to Use
 
-1. **Start the app** - Run the command above
-2. **Open your browser** - Go to the web address shown
-3. **Type a message** - Ask the bot anything!
-4. **Try the quick buttons** - Click "Say Hello" or "Ask Question"
-5. **Have a conversation** - The bot remembers what you talked about
+1. **Start the application** - Run `START_APP.bat`
+2. **Open browser** - Navigate to http://localhost:3000
+3. **Type a message** - Use the chat interface
+4. **Quick actions** - Click preset buttons for common requests
+5. **Voice input** - Click microphone icon to record voice messages
+6. **Upload documents** - Add PDFs to knowledge base via sidebar
+7. **View history** - Access past conversations in sidebar
 
 ### Example Conversations
-- "Hello, how are you?"
-- "I need help with my account"
-- "What can you do?"
-- "Tell me a joke"
+- "I need help with my order"
+- "Track my package"
+- "I want to return an item"
+- "What are your business hours?"
+- "I have a billing question"
 
 
 ## 🎓 What I Learned Building This

@@ -10,15 +10,19 @@ import {
   AlertTriangle,
   Clock,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download,
+  BarChart3
 } from 'lucide-react';
 import useStore from '../store/useStore';
 import { apiService } from '../services/api';
 import toast from 'react-hot-toast';
 import KnowledgeBase from './KnowledgeBase';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const { 
     userName, 
     setUserName, 
@@ -34,6 +38,24 @@ const Sidebar = () => {
       toast.success('Conversation cleared successfully');
     } catch (error) {
       toast.error('Failed to clear conversation');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const data = await apiService.exportConversation(userId);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `conversation_${userId}_${new Date().toISOString()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Conversation exported successfully');
+    } catch (error) {
+      toast.error('Failed to export conversation');
     }
   };
 
@@ -81,13 +103,27 @@ const Sidebar = () => {
               </div>
             </div>
 
-            <div className="border-t border-gray-200 pt-6 mb-6">
+            <div className="border-t border-gray-200 pt-6 mb-6 space-y-3">
+              <button
+                onClick={handleExport}
+                className="w-full flex items-center justify-center space-x-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium py-3 px-4 rounded-lg transition-all"
+              >
+                <Download size={18} />
+                <span>Export Chat</span>
+              </button>
               <button
                 onClick={handleReset}
                 className="w-full flex items-center justify-center space-x-2 bg-red-50 hover:bg-red-100 text-red-600 font-medium py-3 px-4 rounded-lg transition-all"
               >
                 <RotateCcw size={18} />
                 <span>Clear Chat</span>
+              </button>
+              <button
+                onClick={() => setShowAnalytics(true)}
+                className="w-full flex items-center justify-center space-x-2 bg-purple-50 hover:bg-purple-100 text-purple-600 font-medium py-3 px-4 rounded-lg transition-all"
+              >
+                <BarChart3 size={18} />
+                <span>Analytics</span>
               </button>
             </div>
 
@@ -166,6 +202,8 @@ const Sidebar = () => {
           <Activity className="w-6 h-6 text-primary-600" />
         </motion.div>
       )}
+      
+      {showAnalytics && <AnalyticsDashboard onClose={() => setShowAnalytics(false)} />}
     </motion.aside>
   );
 };

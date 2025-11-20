@@ -8,6 +8,7 @@ const useStore = create((set, get) => ({
   emergencyMode: false,
   isAssistantReady: false,
   isLoading: false,
+  darkMode: false,
   systemStats: {
     active_sessions: 0,
     total_conversations: 0,
@@ -39,6 +40,8 @@ const useStore = create((set, get) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   
   setSystemStats: (stats) => set({ systemStats: stats }),
+  
+  toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
   
   updateSystemStats: () => {
     set((state) => ({

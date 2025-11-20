@@ -3,11 +3,12 @@ import { Toaster } from 'react-hot-toast';
 import ChatInterface from './components/ChatInterface';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import LoadingSkeleton from './components/LoadingSkeleton';
 import useStore from './store/useStore';
 import { apiService } from './services/api';
 
 function App() {
-  const { setAssistantReady, setSystemStats } = useStore();
+  const { setAssistantReady, setSystemStats, isAssistantReady, setLoading, darkMode } = useStore();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -38,7 +39,7 @@ function App() {
   }, [setAssistantReady, setSystemStats]);
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className={`flex h-screen ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-50 to-gray-100'}`}>
       <Toaster 
         position="top-right"
         toastOptions={{
@@ -50,12 +51,23 @@ function App() {
         }}
       />
       
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        <ChatInterface />
-      </div>
+      {!isAssistantReady ? (
+        <div className="flex-1 flex flex-col">
+          <div className="bg-white shadow-sm p-4">
+            <div className="h-8 bg-gray-200 rounded animate-pulse w-64" />
+          </div>
+          <LoadingSkeleton />
+        </div>
+      ) : (
+        <>
+          <Sidebar />
+          
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Header />
+            <ChatInterface />
+          </div>
+        </>
+      )}
     </div>
   );
 }

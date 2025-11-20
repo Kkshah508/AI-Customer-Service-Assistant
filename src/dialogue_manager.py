@@ -10,6 +10,7 @@ import time
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 import logging
+from .database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class ConversationState:
         }
         self.messages.append(msg)
         self.last_updated = datetime.now()
+        self._db_instance = getattr(self, '_db_instance', None)
     
     def get_context_summary(self) -> Dict[str, Any]:
         """Get a summary of the current conversation context."""
@@ -72,10 +74,12 @@ class DialogueManager:
     for the healthcare assistant.
     """
     
-    def __init__(self):
+    def __init__(self, use_database: bool = True):
         """Initialize the dialogue manager."""
         self.active_sessions: Dict[str, ConversationState] = {}
-        self.session_timeout = timedelta(hours=2)  # Session expires after 2 hours
+        self.session_timeout = timedelta(hours=2)
+        self.use_database = use_database
+        self.db = Database() if use_database else None  # Session expires after 2 hours
         
         # Conversation flow rules
         self.flow_rules = {
@@ -106,12 +110,13 @@ class DialogueManager:
         Returns:
             ConversationState object
         """
-        # Clean up expired sessions
         self._cleanup_expired_sessions()
         
-        # Create new conversation state
         state = ConversationState(user_id)
         self.active_sessions[user_id] = state
+        
+        if self.db:
+            self.db.create_conversation(state.session_id, user_id)
         
         logger.info(f"Started new conversation for user: {user_id}")
         return state
@@ -130,22 +135,24 @@ class DialogueManager:
         Returns:
             Dictionary with next action and context
         """
-        # Get or create conversation state
         if user_id not in self.active_sessions:
             state = self.start_conversation(user_id)
         else:
             state = self.active_sessions[user_id]
         
-        # Add user message to history
         state.add_message(message, "user", {
             "intent": intent_result,
             "sentiment": sentiment_result
         })
         
-        # Update conversation context
+        if self.db:
+            self.db.add_message(state.session_id, "user", message, {
+                "intent": intent_result,
+                "sentiment": sentiment_result
+            })
+        
         self.maintain_context(user_id, intent_result, sentiment_result)
         
-        # Determine next action
         next_action = self.determine_next_action(user_id, intent_result, sentiment_result)
         
         logger.info(f"Processed input for {user_id}: intent={intent_result.get('intent')}, "
@@ -164,21 +171,30 @@ class DialogueManager:
         """
         state = self.active_sessions[user_id]
         
-        # Update current intent and sentiment
         state.current_intent = intent_result.get("intent")
         state.current_sentiment = sentiment_result
         
-        # Update urgency level
         if sentiment_result.get("urgency_level", "low") > state.urgency_level:
             state.urgency_level = sentiment_result["urgency_level"]
         
-        # Check for escalation triggers
         if sentiment_result.get("urgency_level") == "critical" or \
            intent_result.get("intent") == "emergency":
             state.escalation_triggered = True
         
-        # Update user profile with preferences/information
         self._update_user_profile(state, intent_result, sentiment_result)
+        
+        if self.db:
+            self.db.update_conversation(
+                state.session_id,
+                current_intent=state.current_intent,
+                urgency_level=state.urgency_level,
+                escalation_triggered=int(state.escalation_triggered)
+            )
+            self.db.update_context(
+                state.session_id,
+                symptoms_mentioned=state.symptoms_mentioned,
+                user_profile=state.user_profile
+            )
     
     def determine_next_action(self, user_id: str, intent_result: Dict, 
                             sentiment_result: Dict) -> Dict[str, Any]:
@@ -278,6 +294,9 @@ class DialogueManager:
         if user_id in self.active_sessions:
             state = self.active_sessions[user_id]
             state.add_message(response, "assistant", metadata)
+            
+            if self.db:
+                self.db.add_message(state.session_id, "assistant", response, metadata)
     
     def set_follow_up_questions(self, user_id: str, questions: List[str]):
         """
@@ -291,6 +310,12 @@ class DialogueManager:
             state = self.active_sessions[user_id]
             state.follow_up_questions = questions
             state.awaiting_user_response = True
+            
+            if self.db:
+                self.db.update_context(
+                    state.session_id,
+                    follow_up_questions=questions
+                )
     
     def get_conversation_history(self, user_id: str, limit: int = 10) -> List[Dict]:
         """
@@ -304,6 +329,11 @@ class DialogueManager:
             List of conversation messages
         """
         if user_id not in self.active_sessions:
+            if self.db:
+                conversations = self.db.get_user_conversations(user_id, 1)
+                if conversations:
+                    session_id = conversations[0]['session_id']
+                    return self.db.get_messages(session_id, limit)
             return []
         
         state = self.active_sessions[user_id]
@@ -326,8 +356,13 @@ class DialogueManager:
             state.conversation_complete = True
             state.add_message(f"Conversation ended: {reason}", "system")
             
-            # Optionally remove from active sessions or archive
-            # For now, we'll keep it for potential follow-up
+            if self.db:
+                self.db.update_conversation(
+                    state.session_id,
+                    conversation_complete=1
+                )
+                self.db.add_message(state.session_id, "system", f"Conversation ended: {reason}")
+            
             logger.info(f"Ended conversation for {user_id}: {reason}")
     
     def reset_conversation(self, user_id: str) -> ConversationState:
@@ -379,6 +414,9 @@ class DialogueManager:
     
     def get_system_stats(self) -> Dict[str, Any]:
         """Get system statistics."""
+        if self.db:
+            return self.db.get_stats()
+        
         return {
             "active_sessions": len(self.active_sessions),
             "total_messages": sum(len(state.messages) for state in self.active_sessions.values()),

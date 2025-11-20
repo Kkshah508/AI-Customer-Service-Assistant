@@ -8,12 +8,15 @@ import ChatMessage from './ChatMessage';
 import VoiceRecorder from './VoiceRecorder';
 import QuickActions from './QuickActions';
 import LiveKitVoice from './LiveKitVoice';
+import TypingIndicator from './TypingIndicator';
+import ConversationSearch from './ConversationSearch';
 
 const ChatInterface = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
+  const messageRefs = useRef([]);
   
   const { 
     userId, 
@@ -93,17 +96,38 @@ const ChatInterface = () => {
     handleSendMessage(message);
   };
 
+  const scrollToMessage = (index) => {
+    if (messageRefs.current[index]) {
+      messageRefs.current[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      messageRefs.current[index].classList.add('ring-2', 'ring-primary-500');
+      setTimeout(() => {
+        messageRefs.current[index]?.classList.remove('ring-2', 'ring-primary-500');
+      }, 2000);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="flex-1 overflow-hidden flex flex-col max-w-6xl w-full mx-auto">
         <QuickActions onAction={handleQuickAction} />
+        
+        {conversationHistory.length > 0 && (
+          <div className="px-6 pt-4">
+            <ConversationSearch 
+              messages={conversationHistory} 
+              onResultClick={scrollToMessage}
+            />
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {conversationHistory.length === 0 ? (
             <WelcomeMessage />
           ) : (
             conversationHistory.map((msg, index) => (
-              <ChatMessage key={index} message={msg} />
+              <div key={index} ref={el => messageRefs.current[index] = el} className="rounded-lg transition-all">
+                <ChatMessage message={msg} />
+              </div>
             ))
           )}
           {isProcessing && <TypingIndicator />}
