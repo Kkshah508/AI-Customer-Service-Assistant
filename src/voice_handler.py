@@ -35,6 +35,18 @@ class VoiceHandler:
         except Exception:
             self.microphone = None
         
+        self.tts_pipeline = None
+        
+        if self.microphone and self.recognizer:
+            try:
+                with self.microphone as source:
+                    self.recognizer.adjust_for_ambient_noise(source)
+            except Exception:
+                self.microphone = None
+    
+    def _ensure_tts_pipeline(self):
+        if self.tts_pipeline is not None:
+            return
         try:
             self.tts_pipeline = pipeline(
                 "text-to-speech",
@@ -45,13 +57,6 @@ class VoiceHandler:
         except Exception as e:
             logger.warning(f"TTS model failed to load: {e}")
             self.tts_pipeline = None
-        
-        if self.microphone and self.recognizer:
-            try:
-                with self.microphone as source:
-                    self.recognizer.adjust_for_ambient_noise(source)
-            except Exception:
-                self.microphone = None
     
     def speech_to_text(self, audio_data: AudioDataType) -> Optional[str]:
         if not SPEECH_RECOGNITION_AVAILABLE:
@@ -69,6 +74,8 @@ class VoiceHandler:
             return None
     
     def text_to_speech(self, text: str) -> Optional[bytes]:
+        if self.tts_pipeline is None:
+            self._ensure_tts_pipeline()
         if self.tts_pipeline:
             try:
                 result = self.tts_pipeline(text)

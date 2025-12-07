@@ -28,35 +28,43 @@ class KnowledgeBase:
         os.makedirs(self.storage_dir, exist_ok=True)
         self.documents_file = os.path.join(self.storage_dir, 'documents.json')
         self.documents = self._load_documents()
-        
+        self.chroma_client = None
+        self.collection = None
+        self.converter = None
         if CHROMADB_AVAILABLE:
-            try:
-                self.chroma_client = chromadb.PersistentClient(
-                    path=os.path.join(self.storage_dir, 'chroma_db')
-                )
-                self.collection = self.chroma_client.get_or_create_collection(
-                    name="knowledge_base",
-                    metadata={"hnsw:space": "cosine"}
-                )
-                logger.info("ChromaDB initialized successfully")
-            except Exception as e:
-                logger.error(f"ChromaDB initialization failed: {e}")
-                self.chroma_client = None
-                self.collection = None
+            logger.info("ChromaDB available for knowledge base")
         else:
             logger.warning("ChromaDB not available")
-            self.chroma_client = None
-            self.collection = None
-        
         if DOCLING_AVAILABLE:
-            try:
-                self.converter = DocumentConverter()
-                logger.info("Docling converter initialized")
-            except Exception as e:
-                logger.warning(f"Docling initialization failed: {e}")
-                self.converter = None
+            logger.info("Docling available for knowledge base")
         else:
             logger.warning("Docling not available")
+
+    def _ensure_chroma(self):
+        if self.collection or not CHROMADB_AVAILABLE:
+            return
+        try:
+            self.chroma_client = chromadb.PersistentClient(
+                path=os.path.join(self.storage_dir, 'chroma_db')
+            )
+            self.collection = self.chroma_client.get_or_create_collection(
+                name="knowledge_base",
+                metadata={"hnsw:space": "cosine"}
+            )
+            logger.info("ChromaDB initialized successfully")
+        except Exception as e:
+            logger.error(f"ChromaDB initialization failed: {e}")
+            self.chroma_client = None
+            self.collection = None
+
+    def _ensure_converter(self):
+        if self.converter or not DOCLING_AVAILABLE:
+            return
+        try:
+            self.converter = DocumentConverter()
+            logger.info("Docling converter initialized")
+        except Exception as e:
+            logger.warning(f"Docling initialization failed: {e}")
             self.converter = None
     
     def _load_documents(self) -> Dict:
@@ -80,6 +88,7 @@ class KnowledgeBase:
         doc_id = str(uuid.uuid4())
         
         try:
+            self._ensure_converter()
             if self.converter and DOCLING_AVAILABLE:
                 result = self.converter.convert(file_path)
                 text_content = result.document.export_to_markdown()
@@ -91,6 +100,7 @@ class KnowledgeBase:
             
             chunks = self._chunk_text(text_content, chunk_size=500, overlap=50)
             
+            self._ensure_chroma()
             if self.collection and chunks:
                 chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
                 metadatas = [{"doc_id": doc_id, "filename": filename, "chunk_index": i} for i in range(len(chunks))]
@@ -147,6 +157,7 @@ class KnowledgeBase:
         return hash_md5.hexdigest()
     
     def query(self, query_text: str, n_results: int = 3) -> List[Dict[str, Any]]:
+        self._ensure_chroma()
         if not self.collection:
             return []
         
@@ -190,6 +201,7 @@ class KnowledgeBase:
             return False
         
         try:
+            self._ensure_chroma()
             if self.collection:
                 chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(self.documents[doc_id].get("chunks_count", 0))]
                 if chunk_ids:
