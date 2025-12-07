@@ -8,19 +8,46 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
-try:
-    import chromadb
-    from chromadb.config import Settings
-    CHROMADB_AVAILABLE = True
-except ImportError:
-    chromadb = None
-    CHROMADB_AVAILABLE = False
+# Environment flag to control heavy ML imports for low-memory deployments
+ENABLE_KNOWLEDGE_ML = os.getenv("ENABLE_KNOWLEDGE_ML", "true").lower() == "true"
 
-try:
-    from docling.document_converter import DocumentConverter
-    DOCLING_AVAILABLE = True
-except ImportError:
-    DOCLING_AVAILABLE = False
+# Lazy import flags - imports happen only when needed
+_chromadb = None
+_docling_converter_class = None
+CHROMADB_AVAILABLE = False
+DOCLING_AVAILABLE = False
+
+def _lazy_import_chromadb():
+    global _chromadb, CHROMADB_AVAILABLE
+    if _chromadb is not None:
+        return _chromadb
+    if not ENABLE_KNOWLEDGE_ML:
+        return None
+    try:
+        import chromadb
+        _chromadb = chromadb
+        CHROMADB_AVAILABLE = True
+        logger.info("ChromaDB loaded successfully")
+        return _chromadb
+    except ImportError:
+        logger.warning("ChromaDB not available")
+        return None
+
+def _lazy_import_docling():
+    global _docling_converter_class, DOCLING_AVAILABLE
+    if _docling_converter_class is not None:
+        return _docling_converter_class
+    if not ENABLE_KNOWLEDGE_ML:
+        return None
+    try:
+        from docling.document_converter import DocumentConverter
+        _docling_converter_class = DocumentConverter
+        DOCLING_AVAILABLE = True
+        logger.info("Docling loaded successfully")
+        return _docling_converter_class
+    except ImportError:
+        logger.warning("Docling not available")
+        return None
 
 class KnowledgeBase:
     def __init__(self):
@@ -31,17 +58,15 @@ class KnowledgeBase:
         self.chroma_client = None
         self.collection = None
         self.converter = None
-        if CHROMADB_AVAILABLE:
-            logger.info("ChromaDB available for knowledge base")
-        else:
-            logger.warning("ChromaDB not available")
-        if DOCLING_AVAILABLE:
-            logger.info("Docling available for knowledge base")
-        else:
-            logger.warning("Docling not available")
+        logger.info("KnowledgeBase initialized (ML features load on demand)")
 
     def _ensure_chroma(self):
-        if self.collection or not CHROMADB_AVAILABLE:
+        # Skip if already initialized or if collection exists
+        if self.collection:
+            return
+        # Lazy load chromadb only when needed
+        chromadb = _lazy_import_chromadb()
+        if not chromadb:
             return
         try:
             self.chroma_client = chromadb.PersistentClient(
@@ -58,7 +83,12 @@ class KnowledgeBase:
             self.collection = None
 
     def _ensure_converter(self):
-        if self.converter or not DOCLING_AVAILABLE:
+        # Skip if already initialized
+        if self.converter:
+            return
+        # Lazy load docling only when needed
+        DocumentConverter = _lazy_import_docling()
+        if not DocumentConverter:
             return
         try:
             self.converter = DocumentConverter()
@@ -89,7 +119,8 @@ class KnowledgeBase:
         
         try:
             self._ensure_converter()
-            if self.converter and DOCLING_AVAILABLE:
+            # Check if converter was successfully loaded
+            if self.converter:
                 result = self.converter.convert(file_path)
                 text_content = result.document.export_to_markdown()
                 logger.info(f"Docling processed {filename} successfully")

@@ -1,37 +1,80 @@
-try:
-    import speech_recognition as sr
-    SPEECH_RECOGNITION_AVAILABLE = True
-except ImportError:
-    sr = None
-    SPEECH_RECOGNITION_AVAILABLE = False
-
-import torch
-from transformers import pipeline
-import tempfile
 import os
 import logging
-from typing import Optional, Tuple, Union, Any
+from typing import Optional, Any
 import io
 import wave
-import numpy as np
-from scipy.io.wavfile import write
-
-# Define AudioData type for when speech_recognition is not available
-if SPEECH_RECOGNITION_AVAILABLE:
-    AudioDataType = sr.AudioData
-else:
-    AudioDataType = Any
 
 logger = logging.getLogger(__name__)
+
+# Lazy import flags for heavy dependencies
+_sr = None
+_torch = None
+_transformers_pipeline = None
+_np = None
+SPEECH_RECOGNITION_AVAILABLE = False
+
+def _lazy_import_speech_recognition():
+    global _sr, SPEECH_RECOGNITION_AVAILABLE
+    if _sr is not None:
+        return _sr
+    try:
+        import speech_recognition as sr
+        _sr = sr
+        SPEECH_RECOGNITION_AVAILABLE = True
+        return _sr
+    except ImportError:
+        logger.warning("speech_recognition not available")
+        return None
+
+def _lazy_import_torch():
+    global _torch
+    if _torch is not None:
+        return _torch
+    try:
+        import torch
+        _torch = torch
+        return _torch
+    except ImportError:
+        logger.warning("torch not available")
+        return None
+
+def _lazy_import_transformers_pipeline():
+    global _transformers_pipeline
+    if _transformers_pipeline is not None:
+        return _transformers_pipeline
+    try:
+        from transformers import pipeline
+        _transformers_pipeline = pipeline
+        return _transformers_pipeline
+    except ImportError:
+        logger.warning("transformers not available")
+        return None
+
+def _lazy_import_numpy():
+    global _np
+    if _np is not None:
+        return _np
+    try:
+        import numpy as np
+        _np = np
+        return _np
+    except ImportError:
+        logger.warning("numpy not available")
+        return None
+
+AudioDataType = Any
 
 class VoiceHandler:
     
     def __init__(self):
         logger.info("Initializing Voice Handler...")
         
-        self.recognizer = sr.Recognizer() if SPEECH_RECOGNITION_AVAILABLE else None
+        # Lazy load speech recognition
+        sr = _lazy_import_speech_recognition()
+        
+        self.recognizer = sr.Recognizer() if sr else None
         try:
-            self.microphone = sr.Microphone() if SPEECH_RECOGNITION_AVAILABLE else None
+            self.microphone = sr.Microphone() if sr else None
         except Exception:
             self.microphone = None
         
@@ -47,6 +90,12 @@ class VoiceHandler:
     def _ensure_tts_pipeline(self):
         if self.tts_pipeline is not None:
             return
+        # Lazy load torch and transformers only when TTS is actually needed
+        torch = _lazy_import_torch()
+        pipeline = _lazy_import_transformers_pipeline()
+        if not torch or not pipeline:
+            logger.warning("TTS dependencies not available")
+            return
         try:
             self.tts_pipeline = pipeline(
                 "text-to-speech",
@@ -59,7 +108,8 @@ class VoiceHandler:
             self.tts_pipeline = None
     
     def speech_to_text(self, audio_data: AudioDataType) -> Optional[str]:
-        if not SPEECH_RECOGNITION_AVAILABLE:
+        sr = _lazy_import_speech_recognition()
+        if not sr or not self.recognizer:
             return None
             
         try:
@@ -74,6 +124,10 @@ class VoiceHandler:
             return None
     
     def text_to_speech(self, text: str) -> Optional[bytes]:
+        np = _lazy_import_numpy()
+        if not np:
+            return None
+            
         if self.tts_pipeline is None:
             self._ensure_tts_pipeline()
         if self.tts_pipeline:
@@ -95,6 +149,7 @@ class VoiceHandler:
             except Exception as e:
                 logger.error(f"TTS error: {e}")
         
+        # Fallback: generate a simple tone
         try:
             duration = 1.0
             sample_rate = 22050
@@ -112,7 +167,8 @@ class VoiceHandler:
             return None
     
     def listen_for_speech(self, timeout: int = 5) -> Optional[str]:
-        if not SPEECH_RECOGNITION_AVAILABLE:
+        sr = _lazy_import_speech_recognition()
+        if not sr or not self.recognizer or not self.microphone:
             return None
             
         try:
@@ -128,7 +184,8 @@ class VoiceHandler:
             return None
     
     def process_audio_file(self, audio_file) -> Optional[str]:
-        if not SPEECH_RECOGNITION_AVAILABLE:
+        sr = _lazy_import_speech_recognition()
+        if not sr or not self.recognizer:
             return None
             
         try:
