@@ -101,7 +101,7 @@ class ResponseGenerator:
         
         tone = self._determine_tone(sentiment, context)
         final_response = None
-        if self.use_llm and intent in ["general_inquiry", "appointment_booking", "insurance_question", "medication_info"]:
+        if self.use_llm:
             llm_text = self._generate_llm_response(intent, sentiment, context, entities)
             if llm_text:
                 final_response = llm_text
@@ -144,29 +144,54 @@ class ResponseGenerator:
                 return None
             
             kb_context = ""
+            kb_sources = []
             if self.knowledge_base:
                 try:
-                    retrieved_docs = self.knowledge_base.query(user_text, n_results=3)
-                    if retrieved_docs:
-                        kb_context = "\n\nRelevant information from knowledge base:\n"
-                        for i, doc in enumerate(retrieved_docs, 1):
-                            kb_context += f"\n[{i}] {doc['text']}\n"
+                    retrieved_docs = self.knowledge_base.query(user_text, n_results=5)
+                    relevant_docs = [doc for doc in retrieved_docs if doc.get('score', 0) > 0.3]
+                    if relevant_docs:
+                        kb_context = "\n\n---\nKNOWLEDGE BASE CONTEXT:\n"
+                        for i, doc in enumerate(relevant_docs[:3], 1):
+                            source = doc.get('metadata', {}).get('filename', 'Unknown')
+                            kb_sources.append(source)
+                            kb_context += f"\n[Source {i}: {source}]\n{doc['text']}\n"
+                        kb_context += "---\n"
                 except Exception as e:
                     logger.warning(f"Knowledge base query failed: {e}")
             
-            system_prompt = "You are a helpful customer service AI assistant. Provide concise, actionable answers and ask at most one clarifying question if needed."
+            conversation_history = context.get("conversation_history", [])
+            history_context = ""
+            if conversation_history and len(conversation_history) > 0:
+                recent_history = conversation_history[-6:]
+                history_context = "\n\nRECENT CONVERSATION:\n"
+                for msg in recent_history:
+                    role = msg.get('role', 'user')
+                    content = msg.get('message', '')[:200]
+                    history_context += f"{role.upper()}: {content}\n"
+            
+            system_prompt = """You are an expert customer service AI assistant. Your responsibilities:
+1. Provide accurate, helpful responses based on the knowledge base when available
+2. If knowledge base contains relevant information, prioritize it in your response
+3. Be concise but thorough - aim for 2-3 sentences unless more detail is needed
+4. If you don't have enough information, ask ONE specific clarifying question
+5. Never make up information - if unsure, say so and offer to help differently
+6. Match the customer's tone - be empathetic for complaints, efficient for quick questions"""
+            
             if kb_context:
-                system_prompt += " Use the provided knowledge base information to answer accurately."
+                system_prompt += "\n\nIMPORTANT: Use the KNOWLEDGE BASE CONTEXT provided to answer accurately. Cite sources when applicable."
+            
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            if history_context:
+                messages.append({"role": "system", "content": history_context})
             
             user_content = user_text
             if kb_context:
-                user_content = f"{user_text}{kb_context}"
+                user_content = f"Customer Question: {user_text}{kb_context}"
             
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content}
-            ]
-            payload = {"model": self.openai_model, "messages": messages, "temperature": 0.5, "max_tokens": 300}
+            messages.append({"role": "user", "content": user_content})
+            
+            payload = {"model": self.openai_model, "messages": messages, "temperature": 0.4, "max_tokens": 400}
             headers = {"Authorization": f"Bearer {self.openai_api_key}", "Content-Type": "application/json"}
             r = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=15)
             if r.status_code == 200:

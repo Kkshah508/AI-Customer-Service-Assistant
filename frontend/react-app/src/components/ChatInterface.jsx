@@ -107,12 +107,14 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="flex-1 overflow-hidden flex flex-col max-w-6xl w-full mx-auto">
-        <QuickActions onAction={handleQuickAction} />
+    <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto h-full overflow-hidden">
+        <div className="flex-shrink-0">
+          <QuickActions onAction={handleQuickAction} />
+        </div>
         
         {conversationHistory.length > 0 && (
-          <div className="px-6 pt-4">
+          <div className="px-6 pt-4 flex-shrink-0">
             <ConversationSearch 
               messages={conversationHistory} 
               onResultClick={scrollToMessage}
@@ -120,7 +122,7 @@ const ChatInterface = () => {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
           {conversationHistory.length === 0 ? (
             <WelcomeMessage />
           ) : (

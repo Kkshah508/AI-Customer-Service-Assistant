@@ -187,34 +187,76 @@ class KnowledgeBase:
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
     
-    def query(self, query_text: str, n_results: int = 3) -> List[Dict[str, Any]]:
+    def query(self, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
         self._ensure_chroma()
-        if not self.collection:
+        
+        if self.collection:
+            try:
+                results = self.collection.query(
+                    query_texts=[query_text],
+                    n_results=n_results
+                )
+                
+                retrieved_chunks = []
+                if results and results['documents'] and results['documents'][0]:
+                    for i, doc in enumerate(results['documents'][0]):
+                        metadata = results['metadatas'][0][i] if results.get('metadatas') else {}
+                        distance = results['distances'][0][i] if results.get('distances') else 0
+                        
+                        retrieved_chunks.append({
+                            "text": doc,
+                            "metadata": metadata,
+                            "score": 1 - distance
+                        })
+                
+                return retrieved_chunks
+                
+            except Exception as e:
+                logger.error(f"Error querying knowledge base: {e}")
+        
+        return self._fallback_text_search(query_text, n_results)
+    
+    def _fallback_text_search(self, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
+        if not self.documents:
             return []
         
-        try:
-            results = self.collection.query(
-                query_texts=[query_text],
-                n_results=n_results
-            )
+        results = []
+        query_lower = query_text.lower()
+        query_words = set(query_lower.split())
+        
+        for doc_id, doc_data in self.documents.items():
+            file_path = doc_data.get("file_path")
+            if not file_path or not os.path.exists(file_path):
+                continue
             
-            retrieved_chunks = []
-            if results and results['documents'] and results['documents'][0]:
-                for i, doc in enumerate(results['documents'][0]):
-                    metadata = results['metadatas'][0][i] if results.get('metadatas') else {}
-                    distance = results['distances'][0][i] if results.get('distances') else 0
-                    
-                    retrieved_chunks.append({
-                        "text": doc,
-                        "metadata": metadata,
-                        "score": 1 - distance
-                    })
-            
-            return retrieved_chunks
-            
-        except Exception as e:
-            logger.error(f"Error querying knowledge base: {e}")
-            return []
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                
+                content_lower = content.lower()
+                matching_words = sum(1 for word in query_words if word in content_lower)
+                if matching_words == 0:
+                    continue
+                
+                score = matching_words / len(query_words) if query_words else 0
+                
+                chunks = self._chunk_text(content, chunk_size=500, overlap=50)
+                for i, chunk in enumerate(chunks):
+                    chunk_lower = chunk.lower()
+                    chunk_matches = sum(1 for word in query_words if word in chunk_lower)
+                    if chunk_matches > 0:
+                        chunk_score = chunk_matches / len(query_words)
+                        results.append({
+                            "text": chunk,
+                            "metadata": {"filename": doc_data.get("filename", "Unknown"), "doc_id": doc_id, "chunk_index": i},
+                            "score": chunk_score
+                        })
+            except Exception as e:
+                logger.warning(f"Error reading document {doc_id}: {e}")
+                continue
+        
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:n_results]
     
     def get_all_documents(self) -> List[Dict[str, Any]]:
         return [

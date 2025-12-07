@@ -113,13 +113,14 @@ class HealthcareAssistant:
             # Step 2: Analyze sentiment and urgency
             sentiment_result = self.sentiment_analyzer.analyze_sentiment(message)
             
-            # Step 3: Process through dialogue manager
             dialogue_result = self.dialogue_manager.process_user_input(
                 user_id, message, intent_result, sentiment_result
             )
             dialogue_result["user_message"] = message
             
-            # Step 4: Healthcare-specific processing
+            conversation_history = self.dialogue_manager.get_conversation_history(user_id)
+            dialogue_result["conversation_history"] = conversation_history[-6:] if conversation_history else []
+            
             healthcare_assessment = None
             if intent == "symptom_triage":
                 healthcare_assessment = self.healthcare_triage.assess_symptoms(

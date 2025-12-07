@@ -334,6 +334,7 @@ def reset_conversation():
 @app.route('/api/voice/process', methods=['POST'])
 @rate_limit
 def process_voice():
+    tmp_file_path = None
     try:
         if 'audio' not in request.files:
             return jsonify({
@@ -347,29 +348,30 @@ def process_voice():
             audio_file.save(tmp_file.name)
             tmp_file_path = tmp_file.name
 
-        try:
-            assistant_instance = get_assistant()
-            if hasattr(assistant_instance, 'voice_handler') and assistant_instance.voice_handler:
-                text = assistant_instance.voice_handler.process_audio_file(tmp_file_path)
-                
-                if text:
-                    return jsonify({
-                        'status': 'success',
-                        'text': text
-                    })
-                else:
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'Could not understand audio'
-                    }), 400
-            else:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Voice processing not available'
-                }), 503
-        finally:
-            if os.path.exists(tmp_file_path):
-                os.unlink(tmp_file_path)
+        text = None
+        assistant_instance = get_assistant()
+        
+        if hasattr(assistant_instance, 'voice_handler') and assistant_instance.voice_handler:
+            text = assistant_instance.voice_handler.process_audio_file(tmp_file_path)
+        
+        if not text and os.getenv("OPENAI_API_KEY"):
+            try:
+                from src.voice_handler import VoiceHandler
+                temp_handler = VoiceHandler()
+                text = temp_handler._openai_stt(tmp_file_path)
+            except Exception as e:
+                logger.warning(f"Fallback STT failed: {e}")
+        
+        if text:
+            return jsonify({
+                'status': 'success',
+                'text': text
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Could not understand audio. Please speak clearly and try again.'
+            }), 400
 
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
@@ -377,6 +379,12 @@ def process_voice():
             'status': 'error',
             'message': str(e)
         }), 500
+    finally:
+        if tmp_file_path and os.path.exists(tmp_file_path):
+            try:
+                os.unlink(tmp_file_path)
+            except Exception:
+                pass
 
 @app.route('/api/voice/tts', methods=['POST'])
 @rate_limit
@@ -391,31 +399,33 @@ def text_to_speech():
                 'message': 'No text provided'
             }), 400
 
+        audio_data = None
+        
         assistant_instance = get_assistant()
         vh = getattr(assistant_instance, 'voice_handler', None)
-        if not vh:
-            try:
-                from src.voice_handler import VoiceHandler
-                assistant_instance.voice_handler = VoiceHandler()
-                vh = assistant_instance.voice_handler
-            except Exception:
-                vh = None
+        
         if vh:
             audio_data = vh.text_to_speech(text)
-            if audio_data:
-                return send_file(
-                    io.BytesIO(audio_data),
-                    mimetype='audio/wav',
-                    as_attachment=False
-                )
-            return jsonify({
-                'status': 'error',
-                'message': 'TTS generation failed'
-            }), 500
+        
+        if not audio_data:
+            try:
+                from src.voice_handler import VoiceHandler
+                temp_handler = VoiceHandler()
+                audio_data = temp_handler.text_to_speech(text)
+            except Exception as e:
+                logger.warning(f"TTS handler creation failed: {e}")
+        
+        if audio_data:
+            return send_file(
+                io.BytesIO(audio_data),
+                mimetype='audio/wav',
+                as_attachment=False
+            )
+        
         return jsonify({
             'status': 'error',
-            'message': 'TTS not available'
-        }), 503
+            'message': 'TTS generation failed. Please try again.'
+        }), 500
 
     except Exception as e:
         logger.error(f"TTS error: {e}")
