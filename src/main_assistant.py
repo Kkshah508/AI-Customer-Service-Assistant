@@ -9,6 +9,7 @@ import logging
 import time
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
+import os
 
 from .intent_classifier import IntentClassifier
 from .sentiment_analyzer import SentimentAnalyzer
@@ -16,9 +17,14 @@ from .healthcare_logic import HealthcareTriageSystem
 from .dialogue_manager import DialogueManager
 from .response_generator import ResponseGenerator
 from .knowledge_base import KnowledgeBase
+
+VOICE_AVAILABLE = os.getenv("ENABLE_LOCAL_VOICE_HANDLER", "true").lower() == "true"
+
 try:
-    from .voice_handler import VoiceHandler
-    VOICE_AVAILABLE = True
+    if VOICE_AVAILABLE:
+        from .voice_handler import VoiceHandler
+    else:
+        VoiceHandler = None
 except ImportError as e:
     VoiceHandler = None
     VOICE_AVAILABLE = False
