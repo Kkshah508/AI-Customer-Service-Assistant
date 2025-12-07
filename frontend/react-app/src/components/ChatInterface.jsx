@@ -10,6 +10,7 @@ import QuickActions from './QuickActions';
 import LiveKitVoice from './LiveKitVoice';
 import TypingIndicator from './TypingIndicator';
 import ConversationSearch from './ConversationSearch';
+import WelcomeMessage from './WelcomeMessage';
 
 const ChatInterface = () => {
   const [inputMessage, setInputMessage] = useState('');
