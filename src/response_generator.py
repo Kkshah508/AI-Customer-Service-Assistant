@@ -11,9 +11,11 @@ import random
 from typing import Dict, List, Optional, Any
 import logging
 import requests
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+load_dotenv()
 
 class ResponseGenerator:
     def __init__(self, knowledge_base=None):
@@ -23,6 +25,7 @@ class ResponseGenerator:
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
         self.knowledge_base = knowledge_base
+        logger.info(f"ResponseGenerator initialized (LLM enabled={self.use_llm}, model={self.openai_model})")
         
         # Response tone modifiers
         self.tone_modifiers = {
@@ -172,7 +175,8 @@ class ResponseGenerator:
                 content = (choice.get("message") or {}).get("content")
                 return content
             return None
-        except Exception:
+        except Exception as e:
+            logger.error(f"LLM response generation failed: {e}")
             return None
     
     def _determine_tone(self, sentiment: Dict[str, Any], context: Dict[str, Any]) -> str:

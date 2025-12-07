@@ -232,7 +232,7 @@ const FeatureCard = ({ icon, title, description }) => (
   </div>
 );
 
-const TypingIndicator = () => (
+const TypingIndicatorLocal = () => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}

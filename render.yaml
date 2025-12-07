@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: customer-service-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m gunicorn --bind 0.0.0.0:$PORT src.flask_api:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: ENABLE_LIVEKIT_AGENT
+        value: false
+  - type: worker
+    name: livekit-voice-agent
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python livekit_agent.py dev
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false

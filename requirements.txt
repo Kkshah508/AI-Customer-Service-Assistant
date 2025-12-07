@@ -17,3 +17,4 @@ livekit-plugins-noise-cancellation>=0.2.0
 chromadb>=0.4.0
 docling>=1.0.0
 sentence-transformers>=2.2.0
+gunicorn
