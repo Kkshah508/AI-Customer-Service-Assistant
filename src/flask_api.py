@@ -666,6 +666,7 @@ def delete_knowledge_document(doc_id):
         }), 500
 
 @app.route('/health', methods=['GET'])
+@app.route('/', methods=['GET'])
 def health_check():
     try:
         assistant_instance = get_assistant()
